@@ -41,8 +41,16 @@ class ProductFactory:
         **kwargs: Any,
     ) -> ProductRFRSwap:
 
-        #TODO
-        pass
+        bdc = data_convention.business_day_convention
+        holidays = data_convention.holiday_convention
+        effective_date, term_or_termination_date = cls._swap_dates(value_date, axis1, bdc, holidays)
+        return ProductRFRSwap(
+            effective_date, term_or_termination_date, data_convention.payment_offset,
+            data_convention.index_str, values, PayOrReceive.from_string(kwargs.get("pay_or_rec", "receive")),
+            kwargs.get("notional", 1e4), data_convention.acc_period, data_convention.acc_basis,
+            pay_business_day_convention=bdc, pay_holiday_convention=holidays,
+            compounding_method=data_convention.compounding_method,
+        )
 
     @classmethod
     def create_overnight_index_basis_swap(
@@ -54,8 +62,28 @@ class ProductFactory:
         **kwargs: Any,
     ) -> ProductOvernightIndexBasisSwap:
 
-        #TODO
-        pass
+        bdc = data_convention.business_day_convention
+        holidays = data_convention.holiday_convention
+        effective_date, term_or_termination_date = cls._swap_dates(value_date, axis1, bdc, holidays)
+        return ProductOvernightIndexBasisSwap(
+            effective_date, term_or_termination_date, data_convention.payment_offset,
+            data_convention.index_1_str, data_convention.index_2_str, values,
+            PayOrReceive.from_string(kwargs.get("pay_or_rec", "receive")),
+            kwargs.get("notional", 1e4), data_convention.acc_period_1, data_convention.acc_basis,
+            accrual_period_2=data_convention.acc_period_2,
+            pay_business_day_convention=bdc, pay_holiday_convention=holidays,
+            compounding_method=data_convention.compounding_method,
+        )
+
+    @staticmethod
+    def _swap_dates(value_date, axis1, bdc, holidays):
+        """axis1 is 'run' (spot-starting) or 'start x run'; run may be a tenor or an explicit date."""
+        start, run = ProductFactory._tokenize_axis1(axis1)
+        if run is None:
+            return value_date, start
+        effective_date = (add_period(value_date, start.get_term(), bdc, holidays)
+                          if start.is_term() else start.get_date())
+        return effective_date, run
 
     @classmethod
     def create_fra(cls, value_date, axis1, data_convention, values, **kwargs):
